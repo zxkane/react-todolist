@@ -6,45 +6,115 @@ import { Tasks } from './components/Tasks'
 
 import styles from './styles/app.module.css'
 
-const LOCALSTORAGE_TASKS_KEY = 'todolist-tasks'
+import Axios from "axios";
+import HTTP from "./common/http";
+import './common/types'
 
 export function App() {
   const [tasks, setTasks] = useState([])
-  const [isLoading, setIsLoading] = useState(true)
   const [searchTaskName, setSearchTaskName] = useState('')
+  const [loadingConfig, setLoadingConfig] = useState(true);
+  const [loadingData, setLoadingData] = useState(true);
+  const [loadingCreate, setLoadingCreate] = useState(false);
+  const [loadingChange, setLoadingChange] = useState(false);
+  const [subjectEmptyError, setSubjectEmptyError] = useState(false);
 
-  const onAddTask = (newTask) => {
-    setTasks(currentState => [...currentState, newTask])
+  const onAddTask = async(newTask) => {
+    if (!newTask.subject.trim()) {
+      setSubjectEmptyError(true);
+      return;
+    }
+    try {
+      setLoadingCreate(true);
+      const res = await HTTP({
+        method: "PUT",
+        data: {
+          subject: newTask.subject,
+          description: newTask.description,
+        },
+        url: "/todo",
+      });
+      if (res.data) {
+        setSubjectEmptyError(false);
+        setLoadingCreate(false);
+        getTasks();
+      }
+    } catch (error) {
+      setLoadingCreate(false);
+      console.info(error);
+    }
+
     setSearchTaskName('')
   }
 
-  const onRemoveTask = (taskId) => {
-    setTasks(currentState => currentState.filter(task => task.id !== taskId))
+  const onRemoveTask = async (taskId) => {
+    try {
+      setLoadingChange(true);
+      const res = await HTTP({
+        method: "DELETE",
+        data: {
+        },
+        url: "/todo/" + taskId.substring(5),
+      });
+      if(res.data) {
+        getTasks();
+      }
+    } catch (error) {
+      console.info(error);
+    } finally {
+      setLoadingChange(false);
+    }
   }
 
-  const onChangeCompleted = (taskId) => {
+  const onChangeCompleted = async(taskId) => {
     const taskIndex = tasks.findIndex(task => task.id === taskId)
 
     const updatedTask = [...tasks]
-    updatedTask[taskIndex].completed = !updatedTask[taskIndex].completed
+    const taskToBeChanged = updatedTask[taskIndex];
     
-    setTasks(updatedTask)
+    try {
+      setLoadingChange(true);
+      const res = await HTTP({
+        method: "POST",
+        data: {
+          subject: taskToBeChanged.subject,
+          description: taskToBeChanged.description,
+          isCompleted: !taskToBeChanged.isCompleted,
+        },
+        url: "/todo/" + taskId.substring(5),
+      });
+      if(res.data) {
+        getTasks();
+      }
+    } catch (error) {
+      console.info(error);
+    } finally {
+      setLoadingChange(false);
+    }
   }
 
-  // Esse bloco de código é disparado toda a vez que o array de
-  // tasks sofrer alguma alteração(add, remove, update)
-  useEffect(() => {
-    if(!isLoading) {
-      localStorage.setItem(LOCALSTORAGE_TASKS_KEY, JSON.stringify(tasks))
+  const getTasks = async () => {
+    try {
+      setLoadingData(true);
+      const res = await HTTP({
+        method: "GET",
+        data: {
+          "content-type": "application/json",
+        },
+        url: "/todo",
+      });
+      setLoadingData(false);
+      const tasksData = res.data;
+      if ((typeof tasksData === "string")) {
+        Swal.fire("Ops..", tasksData);
+      } else {
+        setTasks(tasksData);
+      }
+    } catch (error) {
+      console.info(error);
     }
-  }, [tasks])
+  };
 
-  // Esse bloco de código é disparado ao carregar a página do usuário
-  useEffect(() => {
-    const tasksLocal = localStorage.getItem(LOCALSTORAGE_TASKS_KEY)
-    tasksLocal && setTasks(JSON.parse(tasksLocal))
-    setIsLoading(false)
-  }, [])
 
   const handleTermSearch = (e) => {
     const valueTerm = e.target.value.toLocaleLowerCase()
@@ -56,8 +126,27 @@ export function App() {
   }, [tasks])
 
   const totalCompletedTasks = useMemo(() => {
-    return tasks.filter(task => task.completed).length
+    return tasks.filter(task => task.isCompleted).length
   })
+
+  // Esse bloco de código é disparado toda a vez que o array de
+  // tasks sofrer alguma alteração(add, remove, update)
+  useEffect(() => {
+    setLoadingConfig(true);
+    // Axios.get("/aws-exports.json").then((res) => {
+    //   setLoadingConfig(false);
+    // });
+    getTasks();
+    setLoadingConfig(false);
+  }, []);
+
+  if (loadingConfig) {
+    return (
+      <div className="pd-20 text-center">
+        Loading...
+      </div>
+    );
+  }  
 
   return (
     <div className={styles.container}>
@@ -72,7 +161,7 @@ export function App() {
           type="text"
           value={searchTaskName}
           onChange={handleTermSearch}
-          placeholder="Pesquisar uma tarefa"
+          placeholder="search for a task"
         />
 
         <Tasks
@@ -84,12 +173,12 @@ export function App() {
 
         <footer className={styles.footer}>
           <h6>
-            Total de tarefas:
+            Total tasks:
             <span>{totalTasks}</span>
           </h6>
 
           <h6>
-            Total de tarefas concluidas:
+            Total completed tasks:
             <span>{totalCompletedTasks}</span>
           </h6>
         </footer>

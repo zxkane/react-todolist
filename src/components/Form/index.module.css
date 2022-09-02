@@ -1,6 +1,8 @@
 .form {
   display: flex;
   column-gap: 12px;
+  flex-wrap: wrap;
+  width: 100%;
 }
 
 .form__button {
@@ -10,6 +12,27 @@
   background: var(--secondary);
 }
 
+.form__div {
+  flex: 1;
+}
+
+.form__textarea {
+  margin-top: 10px;
+  padding: 12px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--background-light);
+  width: 100% !important;
+}
+
+.form__div_datepicker {
+  margin-top: 10px;
+  padding: 12px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--background-light);
+}
+
 .form__button:disabled {
   opacity: 0.6;
   cursor: not-allowed;
@@ -17,4 +40,14 @@
 
 .form__button svg {
   margin-right: 6px;
+}
+
+.form__duedate {
+  padding: 0 10px;
+  font-size: 18px;
+}
+
+.form__duedate_title {
+  font-size: 16px;
+  padding: 2px 0 10px 0;
 }

@@ -18,7 +18,7 @@ body {
   --terciary: #bbbbbb;
 }
 
-body, input, button {
+body, input, textarea, button {
   color: var(--primary);
   font: 400 16px 'Fredoka', sans-serif;
 }

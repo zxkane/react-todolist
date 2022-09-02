@@ -2,18 +2,18 @@ import { FaTrashAlt } from 'react-icons/fa'
 
 import styles from './index.module.css'
 
-export function Task({ id, name, completed, onRemove, onChangeCompleted }) {
+export function Task({ id, subject, isCompleted, onRemove, onChangeCompleted }) {
   return (
-    <li className={`${styles.task} ${completed ? styles.completed : ''}`}>
+    <li className={`${styles.task} ${isCompleted ? styles.completed : ''}`}>
       <input
         type="checkbox"
-        checked={completed}
+        checked={isCompleted}
         className={styles.task__checkbox}
         onChange={e => onChangeCompleted(id)}
       />
 
       <span className={styles.task__name}>
-        {name}
+        {subject}
       </span>
 
       <button

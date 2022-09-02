@@ -8,7 +8,7 @@ import styles from './index.module.css'
 export function Tasks({ tasks, searchTaskName, onRemoveTask, onChangeCompletedTask }) {
 
   const isVisibleTask = (task) => {
-    const taskName = task.name.toLocaleLowerCase()
+    const taskName = task.subject.toLocaleLowerCase()
     return taskName.includes(searchTaskName)
   }
 
