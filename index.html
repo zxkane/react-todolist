@@ -18,4 +18,11 @@
     </div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
+  <script>
+    window.global = window;
+    window.process = {
+      env: { DEBUG: undefined },
+    };
+    var exports = {};
+  </script>  
 </html>

@@ -8,7 +8,18 @@ import styles from './styles/app.module.css'
 
 import Axios from "axios";
 import HTTP from "./common/http";
-import './common/types'
+import './common/types';
+
+import { Amplify, Auth, API, Hub } from "aws-amplify";
+import {
+  Authenticator,
+  Flex,
+  View,
+  useTheme,
+  Text,
+} from "@aws-amplify/ui-react";
+import "@aws-amplify/ui-react/styles.css";
+import Swal from "sweetalert2";
 
 export function App() {
   const [tasks, setTasks] = useState([])
@@ -18,6 +29,8 @@ export function App() {
   const [loadingCreate, setLoadingCreate] = useState(false);
   const [loadingChange, setLoadingChange] = useState(false);
   const [subjectEmptyError, setSubjectEmptyError] = useState(false);
+  const [apiEndpoint, setApiEndpoint] = useState('');
+  var apiEndpointName;
 
   const onAddTask = async(newTask) => {
     if (!newTask.subject.trim()) {
@@ -26,19 +39,29 @@ export function App() {
     }
     try {
       setLoadingCreate(true);
-      const res = await HTTP({
-        method: "PUT",
-        data: {
+      
+      const initData = {
+        body: {
           subject: newTask.subject,
           description: newTask.description,
         },
-        url: "/todo",
+        headers: { "content-type": "application/json" },
+        response: true,
+      };
+      API.put(apiEndpoint, "/todo/", initData).then((res) => {
+        if (res.data) {
+          setSubjectEmptyError(false);
+          setLoadingCreate(false);
+          getTasks();
+        }
+      }).catch((error) => {
+        console.info(error);
+        Swal.fire(
+          `${error.message}`,
+          `${error?.response?.data?.message}`,
+          undefined
+        );
       });
-      if (res.data) {
-        setSubjectEmptyError(false);
-        setLoadingCreate(false);
-        getTasks();
-      }
     } catch (error) {
       setLoadingCreate(false);
       console.info(error);
@@ -50,15 +73,23 @@ export function App() {
   const onRemoveTask = async (taskId) => {
     try {
       setLoadingChange(true);
-      const res = await HTTP({
-        method: "DELETE",
-        data: {
-        },
-        url: "/todo/" + taskId.substring(5),
+     
+      const initData = {
+        headers: { "content-type": "application/json" },
+        response: true,
+      };     
+      API.del(apiEndpoint, "/todo/" + taskId.substring(5), initData).then((res) => {
+        if(res.data) {
+          getTasks();
+        }
+      }).catch((error) => {
+        console.info(error);
+        Swal.fire(
+          `${error.message}`,
+          `${error?.response?.data?.message}`,
+          undefined
+        );
       });
-      if(res.data) {
-        getTasks();
-      }
     } catch (error) {
       console.info(error);
     } finally {
@@ -74,18 +105,28 @@ export function App() {
     
     try {
       setLoadingChange(true);
-      const res = await HTTP({
-        method: "POST",
-        data: {
+      
+      const initData = {
+        body: {
           subject: taskToBeChanged.subject,
           description: taskToBeChanged.description,
           isCompleted: !taskToBeChanged.isCompleted,
         },
-        url: "/todo/" + taskId.substring(5),
+        headers: { "content-type": "application/json" },
+        response: true,
+      };
+      API.post(apiEndpoint, "/todo/" + taskId.substring(5), initData).then((res) => {
+        if(res.data) {
+          getTasks();
+        }
+      }).catch((error) => {
+        console.info(error);
+        Swal.fire(
+          `${error.message}`,
+          `${error?.response?.data?.message}`,
+          undefined
+        );
       });
-      if(res.data) {
-        getTasks();
-      }
     } catch (error) {
       console.info(error);
     } finally {
@@ -94,36 +135,58 @@ export function App() {
   }
 
   const getTasks = async () => {
-    try {
-      setLoadingData(true);
-      const res = await HTTP({
-        method: "GET",
-        data: {
-          "content-type": "application/json",
-        },
-        url: "/todo",
-      });
-      setLoadingData(false);
-      const tasksData = res.data;
-      if ((typeof tasksData === "string")) {
-        Swal.fire("Ops..", tasksData);
-      } else {
-        setTasks(tasksData);
+    const canEnter = await ionViewCanEnter();
+    if (canEnter) {
+      try {
+        setLoadingData(true);
+        
+        const initData = {
+          headers: { "content-type": "application/json" }, // OPTIONAL
+          response: true, // OPTIONAL (return the entire Axios response object instead of only response.data)
+        };        
+        API
+        .get(apiEndpointName || apiEndpoint, "/todo", initData)
+        .then(res => {
+          setLoadingData(false);
+          const tasksData = res.data;
+          if ((typeof tasksData === "string")) {
+            Swal.fire("Ops..", tasksData);
+          } else {
+            setTasks(tasksData);
+          }
+        })
+        .catch(error => {
+          setLoadingData(false);
+          console.error(error);
+          Swal.fire(
+            `${error.message}`,
+            `${error?.response?.data?.message}`,
+            undefined
+          );
+        });
+      } catch (error) {
+        console.info(error);
       }
-    } catch (error) {
-      console.info(error);
     }
   };
 
+  const ionViewCanEnter = async () => {
+    try {
+        await Auth.currentAuthenticatedUser();
+        return true;
+    } catch {
+        return false;
+    }
+  }
 
   const handleTermSearch = (e) => {
-    const valueTerm = e.target.value.toLocaleLowerCase()
-    setSearchTaskName(valueTerm)
+    const valueTerm = e.target.value.toLocaleLowerCase();
+    setSearchTaskName(valueTerm);
   }
 
   const totalTasks = useMemo(() => {
     return tasks.length
-  }, [tasks])
+  }, [tasks]);
 
   const totalCompletedTasks = useMemo(() => {
     return tasks.filter(task => task.isCompleted).length
@@ -133,11 +196,29 @@ export function App() {
   // tasks sofrer alguma alteração(add, remove, update)
   useEffect(() => {
     setLoadingConfig(true);
-    // Axios.get("/aws-exports.json").then((res) => {
-    //   setLoadingConfig(false);
-    // });
-    getTasks();
-    setLoadingConfig(false);
+    Axios.get("/aws-exports.json").then((res) => {
+      const configData = res.data;
+      const tokenHeader = async () => { return { Authorization: `Bearer ${(await Auth.currentSession()).getIdToken().getJwtToken()}` }; };
+      configData.API.endpoints[0].custom_header = tokenHeader;
+      Amplify.configure(configData);
+      apiEndpointName = configData.API.endpoints[0].name;
+      setApiEndpoint(configData.API.endpoints[0].name);
+      
+      Hub.listen('auth', ({ payload }) => {
+        const { event } = payload;
+        switch (event) {
+          case 'signIn':
+          case 'signUp':
+          case 'autoSignIn':
+            getTasks();
+            break;
+        }
+      });
+      
+      getTasks();
+      
+      setLoadingConfig(false);
+    });
   }, []);
 
   if (loadingConfig) {
@@ -148,42 +229,82 @@ export function App() {
     );
   }  
 
+  const components = {
+    Header() {
+      const { tokens } = useTheme();
+  
+      return (
+        <View textAlign="center" padding={tokens.space.large}>
+          <Text
+            variation="success"
+            as="strong"
+            color="gray"
+            lineHeight="1.5em"
+            fontWeight={1600}
+            fontSize="3em"
+            fontStyle="normal"
+            textDecoration="none"
+            width="30vw"
+          >
+            Todolist
+        </Text>
+        </View>
+      );
+    },
+  };
+  
   return (
-    <div className={styles.container}>
-      <div className={styles.content}>
-        <h1>TODOLIST</h1>
-
-        <Form onSubmit={onAddTask} />
-
-        <hr />
-
-        <Input
-          type="text"
-          value={searchTaskName}
-          onChange={handleTermSearch}
-          placeholder="search for a task"
-        />
-
-        <Tasks
-          tasks={tasks}
-          searchTaskName={searchTaskName}
-          onRemoveTask={onRemoveTask}
-          onChangeCompletedTask={onChangeCompleted}
-        />
-
-        <footer className={styles.footer}>
-          <h6>
-            Total tasks:
-            <span>{totalTasks}</span>
-          </h6>
-
-          <h6>
-            Total completed tasks:
-            <span>{totalCompletedTasks}</span>
-          </h6>
-        </footer>
-      </div>
-
-    </div>
+    <Authenticator components={components} loginMechanisms={['email']}>
+      {({ signOut, user }) => (
+        <Flex
+          direction="column"
+          justifyContent="flex-start"
+          alignItems="center"
+          alignContent="flex-start"
+          wrap="nowrap"
+          gap="1rem"
+          textAlign="center"
+        >
+          <View width="100%">
+            <div className={styles.container}>
+              <div className={styles.content}>
+                <h1>TODOLIST</h1>
+        
+                <Form onSubmit={onAddTask} />
+        
+                <hr />
+        
+                <Input
+                  type="text"
+                  value={searchTaskName}
+                  onChange={handleTermSearch}
+                  placeholder="search for a task"
+                />
+        
+                <Tasks
+                  tasks={tasks}
+                  searchTaskName={searchTaskName}
+                  onRemoveTask={onRemoveTask}
+                  onChangeCompletedTask={onChangeCompleted}
+                />
+        
+                <footer className={styles.footer}>
+                  <h6>
+                    Total tasks:
+                    <span>{totalTasks}</span>
+                  </h6>
+        
+                  <h6>
+                    Total completed tasks:
+                    <span>{totalCompletedTasks}</span>
+                  </h6>
+                </footer>
+              </div>
+        
+            </div>
+          </View>
+        </Flex>
+      )}
+    </Authenticator>    
   )
 }
