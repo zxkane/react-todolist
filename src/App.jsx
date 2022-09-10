@@ -17,6 +17,7 @@ import {
   View,
   useTheme,
   Text,
+  Button,
 } from "@aws-amplify/ui-react";
 import "@aws-amplify/ui-react/styles.css";
 import Swal from "sweetalert2";
@@ -298,6 +299,17 @@ export function App() {
                     Total completed tasks:
                     <span>{totalCompletedTasks}</span>
                   </h6>
+                </footer>
+                
+                <footer className={styles.footer}>
+                  <Button
+                    variation="link"
+                    loadingText=""
+                    onClick={() => signOut()}
+                    ariaLabel=""
+                  >
+                    Sign Out!
+                  </Button>
                 </footer>
               </div>
         
