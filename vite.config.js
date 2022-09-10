@@ -14,5 +14,10 @@ export default defineConfig({
         replacement: './runtimeConfig.browser',
       },
     ]
-  }  
+  },
+  build: {
+    rollupOptions: {
+      external: (id) => id.endsWith('aws-exports.json')
+    }, // ...etc.
+  }
 })

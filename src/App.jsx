@@ -13,11 +13,13 @@ import './common/types';
 import { Amplify, Auth, API, Hub } from "aws-amplify";
 import {
   Authenticator,
+  useAuthenticator,
   Flex,
   View,
   useTheme,
   Text,
   Button,
+  Divider,
 } from "@aws-amplify/ui-react";
 import "@aws-amplify/ui-react/styles.css";
 import Swal from "sweetalert2";
@@ -32,6 +34,8 @@ export function App() {
   const [subjectEmptyError, setSubjectEmptyError] = useState(false);
   const [apiEndpoint, setApiEndpoint] = useState('');
   var apiEndpointName;
+  const [isAuthenticated, setIAuthenticated] = useState(false);
+  const [oidcProviderName, setOidcProviderName] = useState('');
 
   const onAddTask = async(newTask) => {
     if (!newTask.subject.trim()) {
@@ -204,23 +208,30 @@ export function App() {
       Amplify.configure(configData);
       apiEndpointName = configData.API.endpoints[0].name;
       setApiEndpoint(configData.API.endpoints[0].name);
-      
-      Hub.listen('auth', ({ payload }) => {
-        const { event } = payload;
-        switch (event) {
-          case 'signIn':
-          case 'signUp':
-          case 'autoSignIn':
-            getTasks();
-            break;
-        }
-      });
+      setOidcProviderName(configData.Auth.oauth?.name);
       
       getTasks();
       
       setLoadingConfig(false);
     });
   }, []);
+
+  Hub.listen('auth', ({ payload }) => {
+    const { event } = payload;
+    switch (event) {
+      case 'signIn':
+      case 'signUp':
+      case 'autoSignIn':
+        setIAuthenticated(true);
+        getTasks();
+        break;
+      case "signOut":
+      case "signIn_failure":
+      case "oAuthSignOut":
+        setIAuthenticated(false);
+        break;
+    }
+  });  
 
   if (loadingConfig) {
     return (
@@ -252,6 +263,50 @@ export function App() {
         </View>
       );
     },
+    SignIn: {
+      Footer() {
+        const { toResetPassword } = useAuthenticator();
+  
+        return (
+          <View textAlign="center">
+            <Button
+              fontWeight="normal"
+              onClick={toResetPassword}
+              size="small"
+              variation="link"
+            >
+              Reset Password
+            </Button>
+            <Divider orientation="horizontal" />
+            <Text>
+              {
+                !isAuthenticated && (
+                  <View
+                    as="div"
+                    backgroundColor="var(--amplify-colors-white)"
+                    borderRadius="6px"
+                    color="var(--amplify-colors-blue-60)"
+                    height="4rem"
+                    maxWidth="100%"
+                    padding="1rem"
+                    >
+                    <Button
+                      variation="primary"
+                      onClick={
+                        () => {
+                          Auth.federatedSignIn({ customProvider: oidcProviderName });
+                        }}
+                    >
+                      Sign In with {oidcProviderName}
+                    </Button>
+                  </View>
+                )
+              }
+            </Text>            
+          </View>
+        );
+      },
+    },    
   };
   
   return (
@@ -302,14 +357,16 @@ export function App() {
                 </footer>
                 
                 <footer className={styles.footer}>
-                  <Button
-                    variation="link"
-                    loadingText=""
-                    onClick={() => signOut()}
-                    ariaLabel=""
-                  >
-                    Sign Out!
-                  </Button>
+                  <h6>Welcome {user?.attributes?.email},
+                    <Button
+                      variation="link"
+                      loadingText=""
+                      onClick={() => signOut()}
+                      ariaLabel=""
+                    >
+                      Sign Out!
+                    </Button>
+                  </h6>
                 </footer>
               </div>
         
